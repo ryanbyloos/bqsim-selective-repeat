@@ -10,6 +10,8 @@
  ******************************************************************************/
 package reso.examples.pingpong;
 
+import Protocol.SelectiveRepeatMessage;
+import Protocol.SelectiveRepeatProtocol;
 import reso.common.AbstractApplication;
 import reso.ip.IPAddress;
 import reso.ip.IPHost;
@@ -21,19 +23,21 @@ public class AppSender
 	
 	private final IPLayer ip;
     private final IPAddress dst;
-    private final int num;
+    private final int data;
 
-    public AppSender(IPHost host, IPAddress dst, int num) {	
+    public AppSender(IPHost host, IPAddress dst, int data) {
     	super(host, "sender");
     	this.dst= dst;
-    	this.num= num;
+    	this.data= data;
     	ip= host.getIPLayer();
     }
 
     public void start()
     throws Exception {
-    	ip.addListener(PingPongProtocol.IP_PROTO_PINGPONG, new PingPongProtocol((IPHost) host));
-    	ip.send(IPAddress.ANY, dst, PingPongProtocol.IP_PROTO_PINGPONG, new PingPongMessage(num));
+        SelectiveRepeatProtocol protocol = new SelectiveRepeatProtocol((IPHost) host);
+    	ip.addListener(SelectiveRepeatProtocol.IP_PROTO_SR, protocol);
+    	//protocol.send(dst, new SelectiveRepeatMessage(data));
+    	//ip.send(IPAddress.ANY, dst , PingPongProtocol.IP_PROTO_PINGPONG, new PingPongMessage(num));
     }
     
     public void stop() {}
