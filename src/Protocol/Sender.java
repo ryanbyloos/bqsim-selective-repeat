@@ -9,7 +9,7 @@ public class Sender extends AbstractApplication
 
     private final IPLayer ip;
     private final IPAddress dst;
-    private final int data;
+    private int data;
 
     public Sender(IPHost host, IPAddress dst, int data) {
         super(host, "sender");
@@ -23,7 +23,12 @@ public class Sender extends AbstractApplication
         ip.addListener(SelectiveRepeatProtocol.IP_PROTO_SR, protocol);
         protocol.dst = dst;
         protocol.send(new SelectiveRepeatMessage(data));
+        protocol.send(new SelectiveRepeatMessage(data));
+        //protocol.send(new SelectiveRepeatMessage(data));
+
+
     }
+
 
     public void stop() {}
 

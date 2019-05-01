@@ -9,7 +9,7 @@ public class Timer extends AbstractTimer {
     }
     @Override
     protected void run() throws Exception {
-        System.out.println("Current time: "+scheduler.getCurrentTime());
+        //System.out.println("Current time: "+scheduler.getCurrentTime());
     }
 
 }
