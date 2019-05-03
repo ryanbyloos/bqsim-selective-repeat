@@ -14,6 +14,6 @@ public class SelectiveRepeatMessage implements Message {
     }
     @Override
     public int getByteLength() {
-        return Integer.SIZE / 8;
+        return Integer.SIZE / data;
     }
 }

@@ -11,8 +11,8 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
     public int next_seq_num = 0;
     public int recv_base = 0;
     public int sequenceNumber = 0;
-    private final int windowSize = 8;
-    public SelectiveRepeatMessage[] window = new SelectiveRepeatMessage[windowSize];
+    private int windowSize = 10;
+    public SelectiveRepeatMessage[] window = new SelectiveRepeatMessage[1];
 
 
     public SelectiveRepeatProtocol(IPHost host) {
@@ -46,7 +46,7 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
                     " host=" + host.name + ", dgram.src=" + datagram.src + ", dgram.dst=" +
                     datagram.dst + ", iif=" + src + ", data=" + rpkt.data + ", sequenceNumber=" + rpkt.sequenceNumber);
             int n = rpkt.sequenceNumber;
-            if(recv_base <= n && n <recv_base+windowSize){
+            if(recv_base <= n && n < recv_base+windowSize){
                 Ack ack = new Ack();
                 ack.sequenceNumber = n;
                 host.getIPLayer().send(IPAddress.ANY, datagram.src, SelectiveRepeatProtocol.IP_PROTO_SR, ack);
@@ -54,13 +54,14 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
                 if(recv_base == n){
                     Receiver.datas.add(data);
                     recv_base++;
-                    while (window[recv_base] != null){
-                        Receiver.datas.add(window[recv_base%8].data);
+                    while (window[recv_base%windowSize] != null){
+                        Receiver.datas.add(window[recv_base%windowSize].data);
+                        window[recv_base%windowSize] = null;
                         recv_base++;
                     }
                 }
                 else{
-                    window[n%8]=rpkt;
+                    window[n%windowSize]=rpkt;
                 }
             }
             else if(recv_base - windowSize <= n && n<recv_base){
@@ -76,10 +77,10 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
                     datagram.dst + ", iif=" + src + ", AckSequenceNumber=" + rpkt.sequenceNumber + ", ");
             int n = rpkt.sequenceNumber;
             if(send_base<= n && n<send_base+windowSize){
-                window[n%8].timer.stop();
-                window[n%8].acked=true;
+                window[n%windowSize].timer.stop();
+                window[n%windowSize].acked=true;
                 if(n == send_base){
-                    while (window[send_base%8].acked){
+                    while (window[send_base%windowSize].acked){
                         send_base++;
                     }
                 }
