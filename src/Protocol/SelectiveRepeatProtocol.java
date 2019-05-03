@@ -24,7 +24,7 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
         System.out.println("next_seq_num : "+next_seq_num);
         System.out.println("recv_base : "+recv_base);
         if(next_seq_num < send_base + windowSize){
-            message.timer = new Timer(host.getNetwork().scheduler, 4);
+            message.timer = new Timer(host.getNetwork().getScheduler(), 4);
             message.sequenceNumber = sequenceNumber;
             message.timer.start();
             host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, message);
