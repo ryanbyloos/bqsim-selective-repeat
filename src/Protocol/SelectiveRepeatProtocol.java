@@ -3,6 +3,9 @@ package Protocol;
 import reso.common.Message;
 import reso.ip.*;
 
+import java.util.LinkedList;
+import java.util.Queue;
+
 public class SelectiveRepeatProtocol implements IPInterfaceListener {
     public static final int IP_PROTO_SR= Datagram.allocateProtocolNumber("SR");
     private final IPHost host;
@@ -11,26 +14,33 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
     public int next_seq_num = 0;
     public int recv_base = 0;
     public int sequenceNumber = 0;
-    private int windowSize = 10;
-    public SelectiveRepeatMessage[] window = new SelectiveRepeatMessage[1];
+    private int windowSize = 8;
+    public SelectiveRepeatMessage[] window = new SelectiveRepeatMessage[windowSize];
+    public Queue<SelectiveRepeatMessage> queue = new LinkedList<>();
 
 
     public SelectiveRepeatProtocol(IPHost host) {
         this.host = host;
+    }
+    public void transfer() throws  Exception{
+        while(next_seq_num < send_base + windowSize && queue.size() > 0){
+            SelectiveRepeatMessage messageToSend = queue.poll();
+            messageToSend.timer = new Timer(host.getNetwork().getScheduler(), 70);
+            messageToSend.sequenceNumber = sequenceNumber;
+            messageToSend.timer.start();
+            window[sequenceNumber%windowSize] = messageToSend;
+            host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, messageToSend);
+            next_seq_num++;
+            sequenceNumber++;
+        }
     }
     public void send(SelectiveRepeatMessage message) throws Exception{
         System.out.println(host);
         System.out.println("send_base : "+send_base);
         System.out.println("next_seq_num : "+next_seq_num);
         System.out.println("recv_base : "+recv_base);
-        if(next_seq_num < send_base + windowSize){
-            message.timer = new Timer(host.getNetwork().getScheduler(), 4);
-            message.sequenceNumber = sequenceNumber;
-            message.timer.start();
-            host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, message);
-            next_seq_num++;
-            sequenceNumber++;
-        }
+        queue.add(message);
+        transfer();
     }
     public void timeout(int sequenceNumber) throws Exception{
         window[next_seq_num-send_base].timer.start();
@@ -85,6 +95,7 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
                     }
                 }
             }
+            transfer();
         }
 
     }
