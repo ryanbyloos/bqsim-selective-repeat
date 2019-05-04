@@ -11,11 +11,19 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
     public static final int IP_PROTO_SR= Datagram.allocateProtocolNumber("SR");
     private final IPHost host;
     public IPAddress dst;
-    public int send_base = 0;
-    public int next_seq_num = 0;
-    public int recv_base = 0;
-    public int sequenceNumber = 0;
+    private int send_base = 0;
+    private int next_seq_num = 0;
+    private int recv_base = 0;
+    private int sequenceNumber = 0;
     private int windowSize = 8;
+    private double RTO = 3;
+    private double SRTT = -1;
+    private double R;
+    private double dep_time;
+    private double arrival_time;
+    private double RTTVAR = -1;
+    private float alpha=0.125f;
+    private float beta=0.25f;
     public SelectiveRepeatMessage[] window = new SelectiveRepeatMessage[windowSize];
     public Queue<SelectiveRepeatMessage> queue = new LinkedList<>();
     Random rand = new Random();
@@ -23,12 +31,14 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
 
     public SelectiveRepeatProtocol(IPHost host) {
         this.host = host;
+        dep_time = host.getNetwork().getScheduler().getCurrentTime();
     }
+
     private void transfer() throws  Exception{
         while(next_seq_num < send_base + windowSize && queue.size() > 0){
             SelectiveRepeatMessage messageToSend = queue.poll();
             messageToSend.sequenceNumber = sequenceNumber;
-            messageToSend.timer = new Timer(host.getNetwork().getScheduler(), 5, this, messageToSend);
+            messageToSend.timer = new Timer(host.getNetwork().getScheduler(), RTO, this, messageToSend);
             messageToSend.timer.start();
             window[sequenceNumber%windowSize] = messageToSend;
             host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, messageToSend);
@@ -45,10 +55,9 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
         transfer();
     }
     public void timeout(int sequenceNumber) throws Exception{
-        System.out.println("sequenceNumber : " + sequenceNumber);
+        System.out.println("[hote][sequenceNumber] : " +"["+host+"]"+"["+sequenceNumber+"]");
+        RTO= RTO*2;
         window[sequenceNumber%windowSize].timer.start();
-        //window[(next_seq_num-send_base)%windowSize].timer.start();
-        //host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, window[(next_seq_num-send_base)%windowSize]);
         host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, window[(sequenceNumber)%windowSize]);
 
     }
@@ -93,8 +102,16 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
 
         }
         else if(message instanceof Ack){
+            arrival_time = (host.getNetwork().scheduler.getCurrentTime());
+            R = arrival_time-dep_time;
+            if(SRTT == -1) SRTT = R;
+            else SRTT = (1-alpha)* SRTT + alpha*(R);
+            if(RTTVAR == -1) RTTVAR = R/2;
+            else RTTVAR=(1-beta)*RTTVAR+beta*(Math.abs(SRTT -R));
+            RTO = SRTT +4*RTTVAR;
+            System.out.println("RTO : " +RTO );
             Ack rpkt = (Ack) message;
-            System.out.println("Ack" + (int) (host.getNetwork().getScheduler().getCurrentTime()*1000) + "ms)" +
+            System.out.println("Ack" +  (int)(host.getNetwork().getScheduler().getCurrentTime())*1000 + "ms)" +
                     " host=" + host.name + ", dgram.src=" + datagram.src + ", dgram.dst=" +
                     datagram.dst + ", iif=" + src + ", AckSequenceNumber=" + rpkt.sequenceNumber + ", ");
             int n = rpkt.sequenceNumber;
