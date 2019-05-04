@@ -22,7 +22,6 @@ public class Demo {
             final EthernetAddress MAC_ADDR2= EthernetAddress.getByAddress(0x00, 0x26, 0xbb, 0x4e, 0xfc, 0x29);
             final IPAddress IP_ADDR1= IPAddress.getByAddress(192, 168, 0, 1);
             final IPAddress IP_ADDR2= IPAddress.getByAddress(192, 168, 0, 2);
-
             IPHost host1= NetworkBuilder.createHost(network, "H1", IP_ADDR1, MAC_ADDR1);
             host1.getIPLayer().addRoute(IP_ADDR2, "eth0");
             host1.addApplication(new Sender(host1, IP_ADDR2, 5));

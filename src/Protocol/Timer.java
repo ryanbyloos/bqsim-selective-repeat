@@ -1,15 +1,20 @@
 package Protocol;
 
 import reso.common.AbstractTimer;
+import reso.common.Message;
 import reso.scheduler.AbstractScheduler;
 
 public class Timer extends AbstractTimer {
-    public Timer(AbstractScheduler scheduler, double interval) {
+    private SelectiveRepeatProtocol protocol;
+    private SelectiveRepeatMessage message;
+    public Timer(AbstractScheduler scheduler, double interval, SelectiveRepeatProtocol protocol, SelectiveRepeatMessage message) {
         super(scheduler, interval, true);
+        this.protocol = protocol;
+        this.message = message;
     }
     @Override
     protected void run() throws Exception {
-        //System.out.println("Current time: "+scheduler.getCurrentTime());
+        protocol.timeout(message.sequenceNumber);
     }
 
 }
