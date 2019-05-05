@@ -1,4 +1,4 @@
-package Protocol;
+package reso.examples.selectiverepeat;
 
 import reso.common.AbstractApplication;
 import reso.ip.IPAddress;

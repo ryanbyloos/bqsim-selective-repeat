@@ -1,4 +1,4 @@
-package Protocol;
+package reso.examples.selectiverepeat;
 
 import reso.common.Link;
 import reso.common.Network;

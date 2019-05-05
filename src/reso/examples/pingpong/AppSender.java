@@ -10,8 +10,7 @@
  ******************************************************************************/
 package reso.examples.pingpong;
 
-import Protocol.SelectiveRepeatMessage;
-import Protocol.SelectiveRepeatProtocol;
+import reso.examples.selectiverepeat.SelectiveRepeatProtocol;
 import reso.common.AbstractApplication;
 import reso.ip.IPAddress;
 import reso.ip.IPHost;
