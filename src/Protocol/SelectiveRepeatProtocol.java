@@ -31,13 +31,14 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
 
     public SelectiveRepeatProtocol(IPHost host) {
         this.host = host;
-        dep_time = host.getNetwork().getScheduler().getCurrentTime();
+
     }
 
     private void transfer() throws  Exception{
         while(next_seq_num < send_base + windowSize && queue.size() > 0){
             SelectiveRepeatMessage messageToSend = queue.poll();
             messageToSend.sequenceNumber = sequenceNumber;
+            dep_time = host.getNetwork().getScheduler().getCurrentTime();
             messageToSend.timer = new Timer(host.getNetwork().getScheduler(), RTO, this, messageToSend);
             messageToSend.timer.start();
             window[sequenceNumber%windowSize] = messageToSend;
@@ -57,6 +58,8 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
     public void timeout(int sequenceNumber) throws Exception{
         System.out.println("[hote][sequenceNumber] : " +"["+host+"]"+"["+sequenceNumber+"]");
         RTO= RTO*2;
+        window[sequenceNumber%windowSize].timer.stop();
+        window[sequenceNumber%windowSize].timer = new Timer(host.getNetwork().getScheduler(), RTO, this, window[sequenceNumber%windowSize]);
         window[sequenceNumber%windowSize].timer.start();
         host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, window[(sequenceNumber)%windowSize]);
 
