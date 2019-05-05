@@ -11,10 +11,11 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
     public static final int IP_PROTO_SR= Datagram.allocateProtocolNumber("SR");
     private final IPHost host;
     public IPAddress dst;
+    private final int MSS = 536;
+    private int ssthresh = 5360;
     private int send_base = 0;
     private int next_seq_num = 0;
     private int recv_base = 0;
-    private int sequenceNumber = 0;
     private int windowSize = 8;
     private double RTO = 3;
     private double SRTT = -1;
@@ -24,9 +25,11 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
     private double RTTVAR = -1;
     private float alpha=0.125f;
     private float beta=0.25f;
-    public SelectiveRepeatMessage[] window = new SelectiveRepeatMessage[windowSize];
-    public Queue<SelectiveRepeatMessage> queue = new LinkedList<>();
-    Random rand = new Random();
+    private boolean slow_start=true;
+    private boolean congestion_avoidance=false;
+    private SelectiveRepeatMessage[] window = new SelectiveRepeatMessage[windowSize];
+    private Queue<SelectiveRepeatMessage> queue = new LinkedList<>();
+    private Random rand = new Random();
 
 
     public SelectiveRepeatProtocol(IPHost host) {
@@ -34,34 +37,78 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
 
     }
 
+    private void slow_start(){
+        windowSize =windowSize+MSS;
+        if(windowSize>ssthresh){
+            slow_start = false;
+            congestion_avoidance=true;
+        }
+        SelectiveRepeatMessage new_window[] = new SelectiveRepeatMessage[windowSize];
+        addAll(window, new_window);
+        window = new_window;
+    }
+
+    private void additive_increase(){
+        windowSize=windowSize+(MSS*(MSS/windowSize));
+        SelectiveRepeatMessage new_window[] = new SelectiveRepeatMessage[windowSize];
+        addAll(window, new_window);
+        window = new_window;
+    }
+
+    public static void addAll(SelectiveRepeatMessage[] src, SelectiveRepeatMessage[] dst){
+        for (int i = 0; i < src.length; i++) {
+            dst[i]=src[i];
+        }
+    }
+
+    public static void keepAll(SelectiveRepeatMessage[] src, SelectiveRepeatMessage[] dst){
+        for (int i = 0; i < dst.length ; i++) {
+            dst[i] = src[i];
+        }
+    }
+
+    private void multiplicative_decrease(){
+        ssthresh = windowSize/2;
+        windowSize = ssthresh;
+        congestion_avoidance=true;
+        SelectiveRepeatMessage new_window[] = new SelectiveRepeatMessage[windowSize];
+        keepAll(window, new_window);
+        window = new_window;
+    }
+
     private void transfer() throws  Exception{
+        System.out.println("nextSeqNum : "+next_seq_num);
+        System.out.println("send_base : " + send_base);
         while(next_seq_num < send_base + windowSize && queue.size() > 0){
             SelectiveRepeatMessage messageToSend = queue.poll();
-            messageToSend.sequenceNumber = sequenceNumber;
+            messageToSend.sequenceNumber = next_seq_num;
             dep_time = host.getNetwork().getScheduler().getCurrentTime();
             messageToSend.timer = new Timer(host.getNetwork().getScheduler(), RTO, this, messageToSend);
             messageToSend.timer.start();
-            window[sequenceNumber%windowSize] = messageToSend;
+            window[next_seq_num%windowSize] = messageToSend;
             host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, messageToSend);
             next_seq_num++;
-            sequenceNumber++;
         }
     }
+
     public void send(SelectiveRepeatMessage message) throws Exception{
-        System.out.println(host);
-        System.out.println("send_base : "+send_base);
-        System.out.println("next_seq_num : "+next_seq_num);
-        System.out.println("recv_base : "+recv_base);
         queue.add(message);
         transfer();
     }
+
     public void timeout(int sequenceNumber) throws Exception{
-        System.out.println("[hote][sequenceNumber] : " +"["+host+"]"+"["+sequenceNumber+"]");
+        System.out.println("timeout");
         RTO= RTO*2;
         window[sequenceNumber%windowSize].timer.stop();
         window[sequenceNumber%windowSize].timer = new Timer(host.getNetwork().getScheduler(), RTO, this, window[sequenceNumber%windowSize]);
         window[sequenceNumber%windowSize].timer.start();
         host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, window[(sequenceNumber)%windowSize]);
+        /*ssthresh = windowSize/2;
+        windowSize = 1;
+        slow_start=true;
+        congestion_avoidance=false;
+        window = new SelectiveRepeatMessage[windowSize];*/
+
 
     }
 
@@ -105,29 +152,43 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
 
         }
         else if(message instanceof Ack){
-            arrival_time = (host.getNetwork().scheduler.getCurrentTime());
-            R = arrival_time-dep_time;
-            if(SRTT == -1) SRTT = R;
-            else SRTT = (1-alpha)* SRTT + alpha*(R);
-            if(RTTVAR == -1) RTTVAR = R/2;
-            else RTTVAR=(1-beta)*RTTVAR+beta*(Math.abs(SRTT -R));
-            RTO = SRTT +4*RTTVAR;
-            System.out.println("RTO : " +RTO );
             Ack rpkt = (Ack) message;
-            System.out.println("Ack" +  (int)(host.getNetwork().getScheduler().getCurrentTime())*1000 + "ms)" +
-                    " host=" + host.name + ", dgram.src=" + datagram.src + ", dgram.dst=" +
-                    datagram.dst + ", iif=" + src + ", AckSequenceNumber=" + rpkt.sequenceNumber + ", ");
-            int n = rpkt.sequenceNumber;
-            if(send_base<= n && n<send_base+windowSize){
-                window[n%windowSize].timer.stop();
-                window[n%windowSize].acked=true;
-                if(n == send_base){
-                    while (window[send_base%windowSize].acked){
-                        send_base++;
+            if(rand.nextInt(4)!=3){
+                arrival_time = (host.getNetwork().scheduler.getCurrentTime());
+                R = arrival_time-dep_time;
+                if(SRTT == -1) SRTT = R;
+                else SRTT = (1-alpha)* SRTT + alpha*(R);
+                if(RTTVAR == -1) RTTVAR = R/2;
+                else RTTVAR=(1-beta)*RTTVAR+beta*(Math.abs(SRTT -R));
+                RTO = SRTT +4*RTTVAR;
+                System.out.println("Ack" +  (int)(host.getNetwork().getScheduler().getCurrentTime())*1000 + "ms)" +
+                        " host=" + host.name + ", dgram.src=" + datagram.src + ", dgram.dst=" +
+                        datagram.dst + ", iif=" + src + ", AckSequenceNumber=" + rpkt.sequenceNumber + ", ");
+                int n = rpkt.sequenceNumber;
+
+                if(send_base <= n && n<send_base+windowSize){
+                    window[n%windowSize].timer.stop();
+                    window[n%windowSize].acked=true;
+                    if(n == send_base){
+                        while (window[send_base%windowSize].acked){
+                            window[send_base%windowSize].acked = false;
+                            send_base++;
+                        }
                     }
                 }
+                transfer();
             }
-            transfer();
+            else {
+                System.out.println("perte d'ack n ° : " + rpkt.sequenceNumber);
+            }
+
+
+            /*if(slow_start){
+                slow_start();
+            }
+            else if(congestion_avoidance){
+                additive_increase();
+            }*/
         }
 
     }
