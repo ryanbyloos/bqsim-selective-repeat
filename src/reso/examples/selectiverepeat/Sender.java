@@ -23,8 +23,8 @@ public class Sender extends AbstractApplication {
         ip.addListener(SelectiveRepeatProtocol.IP_PROTO_SR, protocol);
         protocol.dst = dst;
         // Sending 20 messages
-        for (int i = 0; i < 20; i++) {
-            protocol.send(new SelectiveRepeatMessage(data));
+        for (int i = 0; i < 200 ; i++) {
+            protocol.send(new SelectiveRepeatMessage(data, i));
         }
     }
 

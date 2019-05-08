@@ -15,7 +15,7 @@ public class Timer extends AbstractTimer {
 
     @Override
     protected void run() throws Exception {
-        protocol.timeout(message.seqNum);
+        protocol.timeout(message);
     }
 
 }
