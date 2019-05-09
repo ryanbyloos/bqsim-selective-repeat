@@ -4,6 +4,7 @@ import reso.common.AbstractApplication;
 import reso.ip.IPHost;
 import reso.ip.IPLayer;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class Receiver extends AbstractApplication {
@@ -16,7 +17,7 @@ public class Receiver extends AbstractApplication {
     }
 
     @Override
-    public void start() {
+    public void start() throws IOException {
         SelectiveRepeatProtocol protocol = new SelectiveRepeatProtocol((IPHost) host);
         ip.addListener(SelectiveRepeatProtocol.IP_PROTO_SR, protocol);
     }

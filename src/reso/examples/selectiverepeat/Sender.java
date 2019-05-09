@@ -19,14 +19,15 @@ public class Sender extends AbstractApplication {
     }
 
     public void start() throws Exception {
+        System.out.println("Time    cwnd");
+        Demo.printWriter.println("Time    cwnd");
         SelectiveRepeatProtocol protocol = new SelectiveRepeatProtocol((IPHost) host);
         ip.addListener(SelectiveRepeatProtocol.IP_PROTO_SR, protocol);
         protocol.dst = dst;
-        for (int i = 0; i < 1000 ; i++) {
+        for (int i = 0; i < Demo.messageToSend; i++) {
             protocol.send(new SelectiveRepeatMessage(data, i));
         }
     }
-
 
     public void stop() {
     }

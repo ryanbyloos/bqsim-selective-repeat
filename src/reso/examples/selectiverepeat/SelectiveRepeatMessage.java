@@ -5,6 +5,7 @@ import reso.common.Message;
 
 public class SelectiveRepeatMessage implements Message {
     public int seqNum;
+    public double depTime;
     public int data;
     public boolean acked, sent;
     AbstractTimer timer;
@@ -12,8 +13,8 @@ public class SelectiveRepeatMessage implements Message {
     public SelectiveRepeatMessage(int data, int seqNum) {
         this.data = data;
         this.seqNum = seqNum;
-        this.acked=false;
-        this.sent=false;
+        this.acked = false;
+        this.sent = false;
     }
 
     @Override

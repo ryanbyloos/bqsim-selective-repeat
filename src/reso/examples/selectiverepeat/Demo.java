@@ -11,10 +11,24 @@ import reso.scheduler.AbstractScheduler;
 import reso.scheduler.Scheduler;
 import reso.utilities.NetworkBuilder;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 public class Demo {
-    public static void main(String[] args) {
+    static PrintWriter printWriter;
+    static int messageToSend = 10000; // Nombres de messages à envoyer.
+
+    public static void main(String[] args) throws IOException {
         AbstractScheduler scheduler = new Scheduler();
         Network network = new Network(scheduler);
+        DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd-HHmmss-");
+        Date date = new Date();
+        FileWriter fileWriter = new FileWriter(dateFormat.format(date) + "selectiveRepeat");
+        printWriter = new PrintWriter(fileWriter);
         try {
             final EthernetAddress MAC_ADDR1 = EthernetAddress.getByAddress(0x00, 0x26, 0xbb, 0x4e, 0xfc, 0x28);
             final EthernetAddress MAC_ADDR2 = EthernetAddress.getByAddress(0x00, 0x26, 0xbb, 0x4e, 0xfc, 0x29);
@@ -39,5 +53,7 @@ public class Demo {
             System.err.println(e.getMessage());
             e.printStackTrace(System.err);
         }
+        fileWriter.close();
+        printWriter.close();
     }
 }
