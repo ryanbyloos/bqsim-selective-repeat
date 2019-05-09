@@ -13,13 +13,14 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
     private int sendBase = 0;
     private int receiveBase = 0;
     private int nextSeqNum = 0;
-    private int cwnd = 2;
+    private int duplicate = 0;
+    private double cwnd = 1;
     private double RTO = 3;
     private double RTT = -1;
     private double SRTT = -1;
     private double depTime, arrTime;
 
-    private boolean congestionAvoidance=false; // Slow-start
+    private boolean congestionAvoidance = false; // Slow-start
 
     private ArrayList<SelectiveRepeatMessage> queue = new ArrayList<>(); // Les messages à envoyer
     private ArrayList<SelectiveRepeatMessage> messages = new ArrayList<>();
@@ -27,20 +28,21 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
     private Random rand = new Random();
 
     // Variables pour la gestion de congestion.
-    private int MSS = 5;
-    private int ssthresh = 100;
+    private double MSS = 1;
+    private double ssthresh = 100;
 
     public SelectiveRepeatProtocol(IPHost host) {
         this.host = host;
     }
 
     private void refresh() throws Exception {
-        for (SelectiveRepeatMessage message : queue) { // while possible, send messages in queue.
+        for (SelectiveRepeatMessage message : queue) {
             if (nextSeqNum < sendBase + cwnd) {
                 if (message.seqNum <= nextSeqNum && !message.sent) {
                     depTime = host.getNetwork().getScheduler().getCurrentTime();
                     message.timer = new Timer(host.getNetwork().getScheduler(), RTO, this, message);
                     message.timer.start();
+                    System.out.println("Sent : "+message.seqNum);
                     host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, message);
                     messages.add(message);
                     nextSeqNum++;
@@ -52,11 +54,9 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
             if (message.acked) {
                 if (message.seqNum == sendBase) {
                     sendBase++;
-//                    System.out.println("Received : " + message.seqNum);
+                    System.out.println("Received : " + message.seqNum);
                 }
             }
-        }
-        for (SelectiveRepeatMessage message : messages) {
             if (message.seqNum == receiveBase) {
                 Receiver.dataList.add(message.data);
                 receiveBase++;
@@ -74,13 +74,11 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
         message.timer.stop();
         message.timer = new Timer(host.getNetwork().getScheduler(), RTO, this, message);
         message.timer.start();
-//        System.out.println("Timeout, resent : "+message.seqNum);
+        System.out.println("Timeout, resent : "+message.seqNum);
         host.getIPLayer().send(IPAddress.ANY, dst, SelectiveRepeatProtocol.IP_PROTO_SR, message);
-        ssthresh = cwnd / 2;
         cwnd = MSS;
-        congestionAvoidance=false; // Slow-start
-//        System.out.println("ssthresh : "+ssthresh);
-        System.out.println(host.getNetwork().getScheduler().getCurrentTime() + " : cwnd : "+cwnd);
+        ssthresh = cwnd / 2;
+        congestionAvoidance = false; // Slow-start
         refresh();
     }
 
@@ -92,16 +90,18 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
                 int n = ((SelectiveRepeatMessage) message).seqNum;
                 Ack ack = new Ack();
                 ack.seqNum = n;
-                host.getIPLayer().send(IPAddress.ANY, datagram.src, SelectiveRepeatProtocol.IP_PROTO_SR, ack);
+                ack.expected = receiveBase;
                 if (receiveBase <= n && n < receiveBase + cwnd) {
                     if (receiveBase == n) {
                         Receiver.dataList.add(((SelectiveRepeatMessage) message).data);
                         receiveBase++;
+                        ack.expected = receiveBase;
                     } else {
                         messages.add((SelectiveRepeatMessage) message);
                     }
                     refresh();
                 }
+                host.getIPLayer().send(IPAddress.ANY, datagram.src, SelectiveRepeatProtocol.IP_PROTO_SR, ack);
             }
         } else if (message instanceof Ack) {
             arrTime = (host.getNetwork().scheduler.getCurrentTime());
@@ -113,7 +113,14 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
             RTO = SRTT + 4 * RTT;
 
             Ack ack = (Ack) message;
-            if (sendBase <= ack.seqNum && ack.seqNum < sendBase + cwnd){
+
+            if (ack.expected == sendBase){
+                duplicate++;
+            }
+            else
+                duplicate=0;
+
+            if (sendBase <= ack.seqNum && ack.seqNum < sendBase + cwnd) {
                 for (SelectiveRepeatMessage m : messages) {
                     if (ack.seqNum == m.seqNum) {
                         m.timer.stop();
@@ -122,16 +129,22 @@ public class SelectiveRepeatProtocol implements IPInterfaceListener {
                     }
                 }
             }
-            if (congestionAvoidance){
-                cwnd += MSS * (MSS / cwnd);
+            if (duplicate >= 3){
+                ssthresh = cwnd /2;
+                cwnd = ssthresh;
+                congestionAvoidance=true;
+                duplicate = 0;
+                System.out.println("Triple duplicate");
             }
-            else{
-                cwnd += MSS;
-                if (cwnd > ssthresh)
-                    congestionAvoidance=true;
+            else {
+                if (congestionAvoidance) {
+                    cwnd += MSS * (MSS / cwnd);
+                } else {
+                    cwnd += MSS;
+                    if (cwnd > ssthresh)
+                        congestionAvoidance = true;
+                }
             }
-            System.out.println(host.getNetwork().getScheduler().getCurrentTime() + " : cwnd : "+cwnd);
-            System.out.println("ssthresh : "+ssthresh);
         }
         refresh();
     }
